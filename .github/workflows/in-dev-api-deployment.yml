@@ -1,0 +1,215 @@
+name: In-Dev-Api Deployment
+ # Trigger workflow manually via GitHub Actions API
+on:
+ 
+# Will get triggered on manual push request of feature or develop branch
+# Select the "Repository" name form the dropdown menu, for which you need to Build & Deploy
+# Select the "Api Applicaiton" name form the dropdown menu, for which you need to Build & Deploy
+# Select the "Branch" name form the dropdown menu, for which you need to Build & Deploy
+
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: 'Select the  Repository' # Prompt to select the repository
+        required: true
+        type: choice
+        options:
+          - sfy-service-platform-unt-ts
+          - sfy-api-gateway-ts
+          - sfy-service-product-iam-ts
+          - sfy-service-product-leap-ts
+      application:
+        type: choice
+        description: Which Backend Application to Deploy? # Prompt to select the application
+        required: true
+        options:
+          - sfy-service-platform-unt-ts
+          - sfy-service-product-iam-ts
+          - sfy-api-gateway-ts
+          - sfy-service-product-leap-ts
+      check_develop:
+        description: 'Deploy develop branch?' # Acts like a checkbox
+        required: true
+        type: boolean
+      
+          
+         
+# Environment Variables configuration section that are used in GitHub actions workflow
+env:
+  # Define environment variables used throughout the workflow
+  REPO_NAME: ${{ github.event.inputs.repository  }}
+  MICROSERVICE: ${{ github.event.inputs.application }}
+  BRANCH_NAME: develop
+  EKS_CLUSTER_NAME: in-main-dev-EKS-cluster # Target EKS cluster
+  AWS_REGION: ap-south-1 # AWS region
+  ECR_REPOSITORY: in-main-dev-api # ECR repository name
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_DEV }} # Slack Webhook for notifications
+  SLACK_CHANNEL: '#dev-notifications' # Slack channel for notifications
+  DEPLOYMENT_NAME: 'In-Dev-Api Deployment' # Deployment name
+  REPO_OWNER: 'Servify-v2' # GitHub organization name
+  
+# GitHub Actions Jobs section
+# Job Name:  "build_and_test_and_SAST"
+# This job runs on ubuntu-latest
+# It includes a strategy matrix for node-version with a single value of 20.
+
+
+run-name: "🌱 DEV 🌱 | API | 🌱 App: ${{ github.event.inputs.application }} 🌱"
+
+jobs:
+  validate_inputs:
+    runs-on: ubuntu-latest
+    steps:
+      # - name: Send Slack notification
+      #   uses: slackapi/slack-github-action@v1.23.0
+      #   with:
+      #     payload: |
+      #       {
+      #         "text": "🚀 *Deployment Workflow Started!*\n\n📦 *Repository:* ${{ env.REPO_NAME }}\n🔧 *Application:* ${{ env.MICROSERVICE }}\n🌿 *Branch:* ${{ env.BRANCH_NAME }}\n📌 *Deployment Name:* ${{ env.DEPLOYMENT_NAME }}\n👤 *Triggered By:* ${{ github.actor }}"
+      #   env:
+      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_DEV }}
+      - name: Send Slack notification
+        uses: slackapi/slack-github-action@v1.23.0
+        with:
+          payload: |
+            {
+              "text": "🚀 *Deployment Workflow Started!*\n\n📦 *Repository:* `${{ github.event.inputs.repository }}`\n🔧 *Application:* `${{ github.event.inputs.application }}`\n🌿 *Branch:* `${{ env.BRANCH_NAME }}`\n📌 *Deployment Name:* `${{ env.DEPLOYMENT_NAME }}`\n👤 *Triggered By:* `${{ github.actor }}`"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_DEV }}
+          
+      - name: Validate Required Inputs
+        run: |
+          if [[ -z "${{ github.event.inputs.repository }}" ]]; then
+            echo "❌ Error: Repository selection is required!"
+            exit 1
+          fi
+          if [[ -z "${{ github.event.inputs.application }}" ]]; then
+            echo "❌ Error: Application selection is required!"
+            exit 1
+          fi
+          if [[ "${{ github.event.inputs.check_develop }}" != "true" ]]; then
+            echo "❌ Error: 'Deploy develop branch' must be checked (true)!"
+            exit 1
+          fi
+          echo "✅ All required inputs are provided. Proceeding with deployment..."
+  build_and_test_and_SAST:
+    permissions:
+      contents: write # Grant write permission 
+    runs-on: ubuntu-latest # Use the latest Ubuntu runner
+    needs: validate_inputs
+    steps:
+      # Step 1: Check out the workflow repositorys
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: main # Define the directory path for the repo
+    
+       # Step 2: Check out the selected centralized repository
+      - name: Checkout Centralized Repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.REPO_OWNER }}/${{ env.REPO_NAME }} # Checkout selected repo
+          ref: ${{ env.BRANCH_NAME }} # Use the specified branch
+          token: ${{ secrets.DEV_GITHUB_TOKEN }} # Authentication token
+          fetch-depth: 1 # Fetch the latest commit only
+
+
+      # Step 3: Set up Node.js using pnpm
+      - name: Setup Node.js
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.x # Use the specified pnpm version
+
+      # Step 4: Restore cached npm dependencies to speed up builds
+      - name: Restore cached npm dependencies
+        uses: actions/cache@v3
+        id: cache
+        with:
+          path: |
+            node_modules
+            ~/.cache/Cypress
+          key: npm-dependencies-${{ hashFiles('pnpm-lock.yaml') }}
+
+       # Step 5: Install Node.js environment with the specified version
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.18.1 # Specific Node.js version
+
+     
+
+      # Step 7: Cache npm dependencies
+      - name: Cache npm dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            node_modules
+            ~/.cache/Cypress
+          key: npm-dependencies-${{ hashFiles('pnpm-lock.yaml') }}
+
+      # Step 8: Configure AWS credentials for authentication
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}
+          aws-region: ${{ env.AWS_REGION }}
+
+     
+      
+      - name: AWS CodeArtifact Login
+        run: |
+          if ! aws codeartifact login --tool npm \
+            --domain servify --domain-owner 439270965704 \
+            --region ap-south-1 --namespace @servify --repository engg-npm; then
+            echo "AWS CodeArtifact login failed. Retrying..." >> $GITHUB_STEP_SUMMARY
+            sleep 5
+            if ! aws codeartifact login --tool npm \
+              --domain servify --domain-owner 439270965704 \
+              --region ap-south-1 --namespace @servify --repository engg-npm; then
+              
+              echo "AWS CodeArtifact login failed after retry." >> $GITHUB_STEP_SUMMARY
+              # Send Slack notification for failure
+              curl -X POST -H 'Content-type: application/json' \
+                  --data '{"text":"phx: :x: AWS CodeArtifact login failed for repository engg-npm in In-Dev-Api Deployment."}' \
+                  ${{ secrets.SLACK_WEBHOOK_DEV }}
+              
+              exit 1
+            fi
+          fi
+       # Step 6: Install dependencies using pnpm
+      # - name: Install dependencies
+      #   run: |
+      #     pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: |
+          if pnpm install --frozen-lockfile; then
+            echo "Dependency Installation Successful." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Dependency Installation Failed." >> $GITHUB_STEP_SUMMARY
+            curl -X POST -H 'Content-type: application/json' --data '{"text":"Dependency Installation Failed for ${{ env.MICROSERVICE }}."}' ${{ secrets.SLACK_WEBHOOK_DEV }}
+            exit 1
+          fi
+      #  Build the application
+      - name: Build
+        id: build
+        run: |
+          if npx nx run ${{ env.MICROSERVICE }}:build; then
+            echo "Build for ${{ env.MICROSERVICE }} executed successfully." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Build for ${{ env.MICROSERVICE }} is  Failed." >> $GITHUB_STEP_SUMMARY
+            curl -X POST -H 'Content-type: application/json' --data '{"text":"Build Failed for ${{ env.MICROSERVICE }}."}' ${{ secrets.SLACK_WEBHOOK_DEV }}
+            exit 1
+          fi
+      #  Test the application
+      - name: Test
+        id: test
+        run: |
+          if npx nx run ${{ env.MICROSERVICE }}:test; then
+            echo "Tests for ${{ env.MICROSERVICE }} executed successfully." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Test for ${{ env.MICROSERVICE }} is Failed." >> $GITHUB_STEP_SUMMARY
+            curl -X POST -H 'Content-type: application/json' --data '{"text":"Tests Failed for ${{ env.MICROSERVICE }}."}' ${{ secrets.SLACK_WEBHOOK_DEV }}
+            exit 1
+          fi 
