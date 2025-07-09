@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🎬 Random Movie Generator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #111;
+      color: #f0f0f0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .container {
+      text-align: center;
+      padding: 30px;
+      background-color: #222;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+      max-width: 400px;
+    }
+
+    img {
+      width: 100%;
+      border-radius: 10px;
+      margin-top: 20px;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    #title {
+      font-size: 22px;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    #overview {
+      font-size: 15px;
+      margin: 10px 0;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 12px 20px;
+      background-color: #e50914;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background-color: #b00610;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎬 Random Movie Generator</h1>
+    <button onclick="getRandomMovie()">Get Random Movie</button>
+    <div id="movieInfo">
+      <p id="title">No movie yet</p>
+      <img id="poster" src="" alt="" style="display:none;" />
+      <p id="overview"></p>
+    </div>
+  </div>
+
+  <script>
+    const movies = [
+      {
+        title: "Inception",
+        overview: "A thief who steals corporate secrets through dream-sharing tech is given the inverse task of planting an idea.",
+        poster: "https://upload.wikimedia.org/wikipedia/en/7/7f/Inception_ver3.jpg"
+      },
+      {
+        title: "The Shawshank Redemption",
+        overview: "Two imprisoned men bond over years, finding redemption through acts of decency.",
+        poster: "https://upload.wikimedia.org/wikipedia/en/8/81/ShawshankRedemptionMoviePoster.jpg"
+      },
+      {
+        title: "The Dark Knight",
+        overview: "Batman faces the Joker, a criminal mastermind out to test Gotham's limits.",
+        poster: "https://upload.wikimedia.org/wikipedia/en/8/8a/Dark_Knight.jpg"
+      },
+      {
+        title: "Interstellar",
+        overview: "Explorers travel through a wormhole in space to ensure humanity’s survival.",
+        poster: "https://upload.wikimedia.org/wikipedia/en/b/bc/Interstellar_film_poster.jpg"
+      },
+      {
+        title: "The Matrix",
+        overview: "A hacker learns the truth about his simulated world and joins a rebellion.",
+        poster: "https://upload.wikimedia.org/wikipedia/en/c/c1/The_Matrix_Poster.jpg"
+      },
+      {
+        title: "Parasite",
+        overview: "A poor family schemes to become employed by a wealthy household by infiltrating their home one by one.",
+        poster: "https://upload.wikimedia.org/wikipedia/en/5/53/Parasite_(2019_film).png"
+      }
+    ];
+
+    function getRandomMovie() {
+      const randomIndex = Math.floor(Math.random() * movies.length);
+      const movie = movies[randomIndex];
+
+      document.getElementById("title").textContent = movie.title;
+      document.getElementById("overview").textContent = movie.overview;
+
+      const poster = document.getElementById("poster");
+      poster.src = movie.poster;
+      poster.style.display = "block";
+    }
+  </script>
+</body>
+</html>
+
+
